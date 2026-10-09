@@ -1933,10 +1933,13 @@ fn layer_row(
     // The eye takes drags too (so a drag starting on it never reorders the row): dragging down
     // the eyes gives every row swept over the visibility the first eye toggled to.
     let eye_resp = ui.interact(eye, ui.id().with(("eye", l.id.0)), Sense::click_and_drag());
-    // A hidden layer's eye box is left empty (still clickable).
+    // A hidden layer keeps a struck-out eye, dimmed, so the box still reads as a control (as in
+    // the Channels panel). Centre the drawing in the column while preserving the visibility hit area.
     if l.visible {
-        // Centre the drawing in the column while preserving the visibility hit area.
         icons::paint(ui, eye_cell, "eye", 15.0, t.layer_label_icon(l.label));
+    } else {
+        let dim = if l.label == photocraft_doc::LabelColor::None { t.text_faint } else { t.layer_label_icon(l.label).gamma_multiply(0.6) };
+        icons::paint(ui, eye_cell, "eye-off", 15.0, dim);
     }
     eye_sweep(ctx, l, rect, &eye_resp, actions);
     if eye_resp.clicked() {
@@ -2921,10 +2924,8 @@ fn effect_rows(app: &mut PhotocraftApp, ui: &mut egui::Ui, l: &Layer, depth: usi
             ui.painter().line_segment([pos2(rect.left() + 30.0, rect.top()), pos2(rect.left() + 30.0, rect.bottom())], Stroke::new(1.0, t.separator));
         }
         let eye = Rect::from_min_size(pos2(rect.left() + 6.0, rect.center().y - 9.0), vec2(18.0, 18.0));
-        // A hidden effect's eye box is left empty (still clickable), like a hidden layer's.
-        if on {
-            icons::paint(ui, eye, "eye", 12.0, t.icon);
-        }
+        // A hidden effect keeps a struck-out eye, dimmed, like a hidden layer's.
+        icons::paint(ui, eye, if on { "eye" } else { "eye-off" }, 12.0, if on { t.icon } else { t.text_faint });
         // The whole eye column of the row takes the click, so it never opens the Layer Style dialog.
         let eye_cell = Rect::from_min_max(rect.left_top(), pos2((rect.left() + 30.0).min(rect.right()), rect.bottom()));
         if ui.interact(eye_cell, ui.id().with(("fx-eye", l.id.0, i)), Sense::click()).clicked() {

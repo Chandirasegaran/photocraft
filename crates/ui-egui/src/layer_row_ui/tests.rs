@@ -181,7 +181,7 @@ fn the_eyes_on_the_effects_rows_hide_and_show_effects() {
     assert_eq!(fx(&h), (true, vec![true, false]), "only the clicked effect is hidden");
     assert_eq!(steps(&h), n + 1, "one history step");
     assert_eq!(h.state().session.active().unwrap().history.undo_label(), Some("Hide Color Overlay"));
-    // The row stays (its eye box empty), and a click there shows the effect again.
+    // The row stays (its eye struck out), and a click there shows the effect again.
     let p = eye(&h, "Color Overlay");
     click(&mut h, p);
     assert_eq!(fx(&h), (true, vec![true, true]));
@@ -228,7 +228,7 @@ fn collapse_all_groups_from_the_panel_menu_and_it_is_saved() {
 
 /// Dragging down the eye column hides (or shows) every layer swept over, in one history step, and
 /// never reorders the layers, even when one pointer move jumps several rows; a hidden layer's eye
-/// box is empty and a click shows it again.
+/// is struck out and a click shows it again.
 #[test]
 fn dragging_down_the_eyes_sweeps_visibility_without_reordering() {
     for moves in [10, 1] {
@@ -263,7 +263,7 @@ fn dragging_down_the_eyes_sweeps_visibility_without_reordering() {
         assert_eq!(order(&h), before, "{moves} moves: an eye drag never reorders the layers");
         assert_eq!(steps(&h), steps_before + 1, "{moves} moves: the whole sweep is one history step");
         assert_eq!(h.state().session.active().unwrap().history.undo_label(), Some("Layer Visibility"));
-        // A click on the (empty) eye box of a hidden layer shows it again.
+        // A click on the struck-out eye of a hidden layer shows it again.
         let p = eye(&recorded(&h.ctx)[1]);
         click(&mut h, p);
         assert!(visible(&h, rows[1].layer));

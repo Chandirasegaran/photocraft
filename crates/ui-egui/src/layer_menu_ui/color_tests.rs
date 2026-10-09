@@ -80,15 +80,22 @@ fn layer_color_background_is_confined_to_the_eye_column_in_every_theme() {
             _ => {}
         }
     }
-    fn has_icon(shape: &egui::Shape, rect: egui::Rect) -> bool {
+    /// The (texture, tint) of the icon painted exactly in `rect`.
+    fn icon(shape: &egui::Shape, rect: egui::Rect) -> Option<(egui::TextureId, egui::Color32)> {
         match shape {
-            egui::Shape::Rect(r) => r.brush.is_some() && r.rect == rect,
-            egui::Shape::Vec(shapes) => shapes.iter().any(|s| has_icon(s, rect)),
-            _ => false,
+            egui::Shape::Rect(r) if r.rect == rect => r.brush.as_ref().map(|b| (b.fill_texture_id, r.fill)),
+            egui::Shape::Vec(shapes) => shapes.iter().find_map(|s| icon(s, rect)),
+            _ => None,
         }
     }
+    fn eye_icon(h: &Harness<'_, crate::PhotocraftApp>, r: egui::Rect) -> Option<(egui::TextureId, egui::Color32)> {
+        use egui::emath::GuiRounding;
+        let cell = egui::Rect::from_center_size(pos2(r.left() + 15.0, r.center().y), vec2(15.0, 15.0)).round_to_pixels(h.ctx.pixels_per_point());
+        h.output().shapes.iter().find_map(|s| icon(&s.shape, cell))
+    }
     for kind in crate::theme::ThemeKind::ALL {
-        let (mut h, red, _) = harness(kind, 1.0);
+        let (mut h, red, other) = harness(kind, 1.0);
+        let mut eyes = Vec::new();
         for visible in [true, false] {
             h.state_mut().run("layer.setProps", json!({"layer": red.0, "visible": visible})).unwrap();
             h.run_steps(4);
@@ -100,10 +107,18 @@ fn layer_color_background_is_confined_to_the_eye_column_in_every_theme() {
                 rects(&s.shape, bg, &mut fills);
             }
             assert_eq!(fills, vec![egui::Rect::from_min_max(r.left_top(), pos2(r.left() + 30.0, r.bottom()))], "{kind:?}");
-            use egui::emath::GuiRounding;
-            let icon = egui::Rect::from_center_size(pos2(r.left() + 15.0, r.center().y), vec2(15.0, 15.0)).round_to_pixels(h.ctx.pixels_per_point());
-            assert_eq!(h.output().shapes.iter().any(|s| has_icon(&s.shape, icon)), visible, "centred eye in {kind:?}");
+            eyes.push(eye_icon(&h, r).unwrap_or_else(|| panic!("centred eye in {kind:?} (visible: {visible})")));
         }
+        // A hidden layer keeps a centred eye: the struck-out one, dimmer than the visible eye.
+        let t = crate::theme::Tokens::for_kind(kind);
+        let on_label = t.layer_label_icon(LabelColor::Red);
+        assert_eq!((eyes[0].1, eyes[1].1), (on_label, on_label.gamma_multiply(0.6)), "eye tints on a colour label in {kind:?}");
+        assert_ne!(eyes[0].0, eyes[1].0, "{kind:?}: a hidden layer shows the struck-out eye, not the eye");
+        // Without a colour label the struck-out eye takes the theme's faint colour.
+        h.state_mut().run("layer.setProps", json!({"layer": other.0, "visible": false})).unwrap();
+        h.run_steps(4);
+        let faint = crate::theme::Tokens::get(&h.ctx).text_faint;
+        assert_eq!(eye_icon(&h, row(&h, other)), Some((eyes[1].0, faint)), "{kind:?}: unlabelled hidden layer");
         let eye = pos2(row(&h, red).left() + 17.0, row(&h, red).center().y);
         click(&mut h, eye, PointerButton::Primary, Modifiers::NONE);
         assert!(h.state().session.active().unwrap().doc.layer(red).unwrap().visible);
